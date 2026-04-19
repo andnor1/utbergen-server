@@ -174,6 +174,114 @@ app.get('/places/photo', async (req, res) => {
   }
 });
 
+// Intelligent crawler – følger lenker automatisk
+app.get('/crawl-venue', async (req, res) => {
+  try {
+    const { url } = req.query;
+    const baseUrl = new URL(url).origin;
+    
+    const eventKeywords = [
+      'event', 'program', 'musikk', 'sport', 'kamp', 'quiz',
+      'hva-skjer', 'kalender', 'konsert', 'live', 'aktivitet',
+      'arrangement', 'forestilling', 'scene', 'turnering',
+      'billetter', 'agenda', 'schedule', 'what', 'happening',
+      'fotball', 'football', 'kvelds', 'weekend', 'helg'
+    ];
+
+    // Hent hovedside
+    console.log(`Crawler starter: ${url}`);
+    const mainRes = await axios.get(url, {
+      timeout: 10000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NattBergenBot/1.0)' }
+    });
+
+    const html = mainRes.data;
+
+    // Strip og lagre hovedside-tekst
+    const mainText = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&[a-z]+;/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 3000);
+
+    // Finn alle interne lenker
+    const linkRegex = /href=["']([^"'#?]+)["']/g;
+    const foundLinks = new Set();
+    let match;
+
+    while ((match = linkRegex.exec(html)) !== null) {
+      const href = match[1];
+      if (!href || href.length < 2) continue;
+
+      let fullUrl;
+      if (href.startsWith('http')) {
+        // Kun interne lenker
+        if (!href.startsWith(baseUrl)) continue;
+        fullUrl = href;
+      } else if (href.startsWith('/')) {
+        fullUrl = baseUrl + href;
+      } else {
+        continue;
+      }
+
+      // Fjern trailing slash og anchors
+      fullUrl = fullUrl.split('#')[0].replace(/\/$/, '');
+      if (fullUrl === url.replace(/\/$/, '')) continue;
+
+      // Sjekk om URL inneholder event-keywords
+      const urlLower = fullUrl.toLowerCase();
+      if (eventKeywords.some(kw => urlLower.includes(kw))) {
+        foundLinks.add(fullUrl);
+      }
+    }
+
+    console.log(`  Fant ${foundLinks.size} relevante undersider`);
+
+    // Besøk topp 5 undersider
+    let allText = `--- HOVEDSIDE: ${url} ---\n${mainText}`;
+    const subUrls = Array.from(foundLinks).slice(0, 5);
+
+    for (const subUrl of subUrls) {
+      try {
+        console.log(`  Besøker: ${subUrl}`);
+        const subRes = await axios.get(subUrl, {
+          timeout: 8000,
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NattBergenBot/1.0)' }
+        });
+        const subText = subRes.data
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/&[a-z]+;/gi, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 2000);
+        
+        if (subText.length > 100) {
+          allText += `\n\n--- UNDERSIDE: ${subUrl} ---\n${subText}`;
+          console.log(`  ✓ ${subUrl.split('/').pop()}: ${subText.length} tegn`);
+        }
+      } catch (err) {
+        console.log(`  ✗ ${subUrl}: ${err.message}`);
+      }
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    res.json({ 
+      text: allText.slice(0, 8000), 
+      links: subUrls,
+      mainLength: mainText.length 
+    });
+
+  } catch (err) {
+    console.error('Crawl feil:', err.message);
+    res.status(500).json({ error: err.message, text: null });
+  }
+});
+
 app.listen(3001, () => {
   console.log('✅ NattBergen proxy kjører på port 3001');
   console.log('   Google API:', GOOGLE_KEY ? '✓' : '✗ MANGLER');

@@ -277,6 +277,48 @@ app.get('/crawl-venue', async (req, res) => {
   }
 });
 
+// Hent Open Graph bilder fra nettside
+app.get('/og-images', async (req, res) => {
+  try {
+    const { url } = req.query;
+    const response = await axios.get(url, {
+      timeout: 8000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NattBergenBot/1.0)' }
+    });
+    const html = response.data;
+
+    // Hent OG-metadata
+    const getOG = (property) => {
+      const match = html.match(new RegExp(`<meta[^>]*property=["']${property}["'][^>]*content=["']([^"']+)["']`, 'i'))
+        || html.match(new RegExp(`<meta[^>]*content=["']([^"']+)["'][^>]*property=["']${property}["']`, 'i'));
+      return match ? match[1] : null;
+    };
+
+    // Hent logo fra siden
+    const logoMatch = html.match(/<img[^>]*(?:logo|brand)[^>]*src=["']([^"']+)["']/i)
+      || html.match(/<a[^>]*href=["'][/"'][^>]*><img[^>]*src=["']([^"']+)["']/i);
+
+    const result = {
+      cover: getOG('og:image'),
+      title: getOG('og:title'),
+      description: getOG('og:description'),
+      logo: logoMatch ? logoMatch[1] : null,
+    };
+
+    // Gjør relative URL-er absolutte
+    const base = new URL(url).origin;
+    if (result.logo && result.logo.startsWith('/')) {
+      result.logo = base + result.logo;
+    }
+
+    console.log(`OG for ${url}:`, result);
+    res.json(result);
+  } catch (err) {
+    console.error('OG feil:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(3001, () => {
   console.log('✅ NattBergen proxy kjører på port 3001');
   console.log('   Google API:', GOOGLE_KEY ? '✓' : '✗ MANGLER');

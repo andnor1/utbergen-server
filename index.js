@@ -174,7 +174,6 @@ app.get('/places/photo', async (req, res) => {
   }
 });
 
-// Intelligent crawler – følger lenker automatisk
 app.get('/crawl-venue', async (req, res) => {
   try {
     const { url } = req.query;
@@ -184,41 +183,51 @@ app.get('/crawl-venue', async (req, res) => {
       'event', 'program', 'musikk', 'sport', 'kamp', 'quiz',
       'hva-skjer', 'kalender', 'konsert', 'live', 'aktivitet',
       'arrangement', 'forestilling', 'scene', 'turnering',
-      'billetter', 'agenda', 'schedule', 'what', 'happening',
-      'fotball', 'football', 'kvelds', 'weekend', 'helg'
+      'billetter', 'agenda', 'fotball', 'football', 'helg'
     ];
+
+    const fetchText = async (fetchUrl) => {
+      const response = await axios.get(fetchUrl, {
+        timeout: 10000,
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NattBergenBot/1.0)' }
+      });
+      return response.data
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&[a-z]+;/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 2500);
+    };
 
     // Hent hovedside
     console.log(`Crawler starter: ${url}`);
-    const mainRes = await axios.get(url, {
+    const mainHtml = (await axios.get(url, {
       timeout: 10000,
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NattBergenBot/1.0)' }
-    });
+    })).data;
 
-    const html = mainRes.data;
-
-    // Strip og lagre hovedside-tekst
-    const mainText = html
+    const mainText = mainHtml
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
       .replace(/<[^>]*>/g, ' ')
       .replace(/&[a-z]+;/gi, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 3000);
+      .slice(0, 2500);
 
-    // Finn alle interne lenker
+    // Finn relevante undersider
     const linkRegex = /href=["']([^"'#?]+)["']/g;
     const foundLinks = new Set();
     let match;
 
-    while ((match = linkRegex.exec(html)) !== null) {
+    while ((match = linkRegex.exec(mainHtml)) !== null) {
       const href = match[1];
       if (!href || href.length < 2) continue;
 
       let fullUrl;
       if (href.startsWith('http')) {
-        // Kun interne lenker
         if (!href.startsWith(baseUrl)) continue;
         fullUrl = href;
       } else if (href.startsWith('/')) {
@@ -227,11 +236,9 @@ app.get('/crawl-venue', async (req, res) => {
         continue;
       }
 
-      // Fjern trailing slash og anchors
       fullUrl = fullUrl.split('#')[0].replace(/\/$/, '');
       if (fullUrl === url.replace(/\/$/, '')) continue;
 
-      // Sjekk om URL inneholder event-keywords
       const urlLower = fullUrl.toLowerCase();
       if (eventKeywords.some(kw => urlLower.includes(kw))) {
         foundLinks.add(fullUrl);
@@ -240,29 +247,17 @@ app.get('/crawl-venue', async (req, res) => {
 
     console.log(`  Fant ${foundLinks.size} relevante undersider`);
 
-    // Besøk topp 5 undersider
+    // Bygg opp samlet tekst fra alle sider
     let allText = `--- HOVEDSIDE: ${url} ---\n${mainText}`;
-    const subUrls = Array.from(foundLinks).slice(0, 5);
+    const subUrls = Array.from(foundLinks).slice(0, 4);
 
     for (const subUrl of subUrls) {
       try {
-        console.log(`  Besøker: ${subUrl}`);
-        const subRes = await axios.get(subUrl, {
-          timeout: 8000,
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NattBergenBot/1.0)' }
-        });
-        const subText = subRes.data
-          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-          .replace(/<[^>]*>/g, ' ')
-          .replace(/&[a-z]+;/gi, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .slice(0, 2000);
-        
+        console.log(`  Leser underside: ${subUrl}`);
+        const subText = await fetchText(subUrl);
         if (subText.length > 100) {
           allText += `\n\n--- UNDERSIDE: ${subUrl} ---\n${subText}`;
-          console.log(`  ✓ ${subUrl.split('/').pop()}: ${subText.length} tegn`);
+          console.log(`  ✓ ${subText.length} tegn fra ${subUrl.split('/').pop()}`);
         }
       } catch (err) {
         console.log(`  ✗ ${subUrl}: ${err.message}`);
@@ -270,10 +265,10 @@ app.get('/crawl-venue', async (req, res) => {
       await new Promise(r => setTimeout(r, 300));
     }
 
+    console.log(`  Total tekst: ${allText.length} tegn`);
     res.json({ 
       text: allText.slice(0, 8000), 
       links: subUrls,
-      mainLength: mainText.length 
     });
 
   } catch (err) {

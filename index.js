@@ -305,11 +305,18 @@ app.get('/og-images', async (req, res) => {
       logo: logoMatch ? logoMatch[1] : null,
     };
 
-    // Gjør relative URL-er absolutte
-    const base = new URL(url).origin;
-    if (result.logo && result.logo.startsWith('/')) {
-      result.logo = base + result.logo;
-    }
+// Gjør relative URL-er absolutte
+const base = new URL(url).origin;
+if (result.logo && result.logo.startsWith('/')) {
+  result.logo = base + result.logo;
+}
+
+// Fjern doble slashes og ugyldige tegn
+if (result.logo) {
+  result.logo = result.logo
+    .replace(/([^:])\/\//g, '$1/')  // fjern doble slashes
+    .replace(/L$/, '');              // fjern trailing L
+}
 
     console.log(`OG for ${url}:`, result);
     res.json(result);

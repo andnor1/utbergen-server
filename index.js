@@ -319,6 +319,27 @@ app.get('/og-images', async (req, res) => {
   }
 });
 
+// Proxy for eksterne bilder
+app.get('/proxy-image', async (req, res) => {
+  try {
+    const { url } = req.query;
+    const response = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 8000,
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (compatible; NattBergenBot/1.0)',
+        'Accept': 'image/webp,image/apng,image/*,*/*'
+      }
+    });
+    res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(response.data);
+  } catch (err) {
+    console.error('proxy-image feil:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(3001, () => {
   console.log('✅ NattBergen proxy kjører på port 3001');
   console.log('   Google API:', GOOGLE_KEY ? '✓' : '✗ MANGLER');

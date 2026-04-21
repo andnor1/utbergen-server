@@ -286,37 +286,32 @@ app.get('/og-images', async (req, res) => {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NattBergenBot/1.0)' }
     });
     const html = response.data;
+    const base = new URL(url).origin;
 
-    // Hent OG-metadata
     const getOG = (property) => {
       const match = html.match(new RegExp(`<meta[^>]*property=["']${property}["'][^>]*content=["']([^"']+)["']`, 'i'))
         || html.match(new RegExp(`<meta[^>]*content=["']([^"']+)["'][^>]*property=["']${property}["']`, 'i'));
       return match ? match[1] : null;
     };
 
-    // Hent logo fra siden
-    const logoMatch = html.match(/<img[^>]*(?:logo|brand)[^>]*src=["']([^"']+)["']/i)
-      || html.match(/<a[^>]*href=["'][/"'][^>]*><img[^>]*src=["']([^"']+)["']/i);
-
-    const result = {
-      cover: getOG('og:image'),
-      title: getOG('og:title'),
-      description: getOG('og:description'),
-      logo: logoMatch ? logoMatch[1] : null,
+    const normalizeUrl = (src) => {
+      if (!src) return null;
+      src = src.trim();
+      if (src.startsWith('//')) return 'https:' + src;
+      if (src.startsWith('/')) return base + src;
+      return src;
     };
 
-// Gjør relative URL-er absolutte
-const base = new URL(url).origin;
-if (result.logo && result.logo.startsWith('/')) {
-  result.logo = base + result.logo;
-}
+    // Hent logo
+    const logoMatch = html.match(/<img[^>]*(?:logo|brand)[^>]*src=["']([^"']+)["']/i)
+      || html.match(/<a[^>]*href=["']\/?["'][^>]*>\s*<img[^>]*src=["']([^"']+)["']/i);
 
-// Fjern doble slashes og ugyldige tegn
-if (result.logo) {
-  result.logo = result.logo
-    .replace(/([^:])\/\//g, '$1/')  // fjern doble slashes
-    .replace(/L$/, '');              // fjern trailing L
-}
+    const result = {
+      cover: normalizeUrl(getOG('og:image')),
+      title: getOG('og:title'),
+      description: getOG('og:description'),
+      logo: normalizeUrl(logoMatch ? logoMatch[1] : null),
+    };
 
     console.log(`OG for ${url}:`, result);
     res.json(result);

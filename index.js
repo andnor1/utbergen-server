@@ -13,7 +13,7 @@ const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
 const SUPABASE_KEY = process.env.REACT_APP_SUPABASE_KEY;
 const PIPELINE_SECRET = process.env.PIPELINE_SECRET || 'utbergen-secret-2026';
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const getSupabase = () => { if (!SUPABASE_URL || !SUPABASE_KEY) throw new Error("Supabase env vars mangler"); return createClient(SUPABASE_URL, SUPABASE_KEY); };
 
 const GEO_QUERIES = [
   "bar Bergen Norway", "pub Bergen Norway", "nattklubb Bergen",
@@ -137,7 +137,7 @@ async function runPipeline(log = console.log) {
 
   // Fase 3: Lagre venues
   log('💾 Lagrer utesteder...');
-  const { error: venueErr } = await supabase.from('venues').upsert(foundVenues, { onConflict: 'place_id' });
+  const { error: venueErr } = await getSupabase().from('venues').upsert(foundVenues, { onConflict: 'place_id' });
   if (venueErr) log(`  ✗ ${venueErr.message}`);
   else log(`✅ ${foundVenues.length} utesteder lagret`);
 
@@ -205,7 +205,7 @@ Hvis ingen eventer: []` }]
   }
 
   // venue_urls
-  const { data: venueUrls } = await supabase.from('venue_urls').select('*, venues(name,place_id)').eq('active', true);
+  const { data: venueUrls } = await getSupabase().from('venue_urls').select('*, venues(name,place_id)').eq('active', true);
   if (venueUrls?.length > 0) {
     log(`🔗 Skanner ${venueUrls.length} event-URL-er...`);
     for (const vu of venueUrls) {
@@ -217,9 +217,9 @@ Hvis ingen eventer: []` }]
   }
 
   if (allEvents.length > 0) {
-    await supabase.from('events').delete().neq('id', 'placeholder');
+    await getSupabase().from('events').delete().neq('id', 'placeholder');
     const unique = Object.values(allEvents.reduce((acc, e) => { acc[e.id] = e; return acc; }, {}));
-    const { error: evErr } = await supabase.from('events').upsert(unique, { onConflict: 'id' });
+    const { error: evErr } = await getSupabase().from('events').upsert(unique, { onConflict: 'id' });
     if (evErr) log(`  ✗ Event feil: ${evErr.message}`);
     else log(`💾 ${unique.length} eventer lagret`);
   }

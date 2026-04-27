@@ -383,3 +383,4 @@ app.listen(PORT, () => {
   console.log('   Claude API:', CLAUDE_KEY ? '✓' : '✗ MANGLER');
   console.log('   Supabase:', SUPABASE_URL ? '✓' : '✗ MANGLER');
 });
+// redeploy

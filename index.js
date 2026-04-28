@@ -62,6 +62,14 @@ function stripHtml(html) {
     .trim();
 }
 
+function removeOldContent(text) {
+  const oldDateMatch = text.search(/\b202[34]\b/);
+  if (oldDateMatch > 500) {
+    return text.slice(0, oldDateMatch).trim();
+  }
+  return text;
+}
+
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
 // ─── PIPELINE FUNKSJON ────────────────────────────────────────────────────────

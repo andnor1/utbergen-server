@@ -149,7 +149,7 @@ async function runPipeline(log = console.log) {
     try {
       const baseUrl = new URL(url).origin;
       const { data: mainHtml } = await axios.get(url, { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0' } });
-      const mainText = stripHtml(mainHtml).slice(0, 2500);
+      const mainText = stripHtml(mainHtml).slice(0, 4000);
       const eventKeywords = ['event', 'program', 'musikk', 'sport', 'kamp', 'quiz', 'hva-skjer', 'kalender', 'konsert', 'live', 'arrangement', 'fotball'];
       const linkRegex = /href=["']([^"'#?]+)["']/g;
       const foundLinks = new Set();
@@ -166,7 +166,7 @@ async function runPipeline(log = console.log) {
       for (const subUrl of Array.from(foundLinks).slice(0, 4)) {
         try {
           const { data: subHtml } = await axios.get(subUrl, { timeout: 8000, headers: { 'User-Agent': 'Mozilla/5.0' } });
-          const subText = stripHtml(subHtml).slice(0, 2000);
+          const subText = stripHtml(subHtml).slice(0, 3000);
           if (subText.length > 100) allText += `\n\n--- UNDERSIDE: ${subUrl} ---\n${subText}`;
         } catch {}
         await delay(200);
@@ -185,7 +185,7 @@ Datoformater du vil se - tolke dem alle riktig:
 For fotballkamper: inkluder alltid begge lag, riktig liga og klokkeslett.
 For faste ukentlige eventer (quiz, karaoke osv): lag én rad per forekomst de neste 2 ukene.
 
-INNHOLD:\n${allText.slice(0, 6000)}
+INNHOLD:\n${allText.slice(0, 12000)}
 Returner KUN JSON-array, ingen markdown:
 [{"id":"${placeId}_1","venue_id":"${placeId}","title":"Chelsea vs Leeds","date":"26. apr","time":"16:00","type":"football","league":"FA CUP"}]
 Gyldige typer: football, live_music, quiz, games, happy_hour, nightclub, karaoke
@@ -280,7 +280,7 @@ app.get('/places/photo', async (req, res) => {
 app.get('/fetch-website', async (req, res) => {
   try {
     const { data } = await axios.get(req.query.url, { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0' } });
-    res.json({ text: stripHtml(data).slice(0, 5000) });
+    res.json({ text: stripHtml(data).slice(0, 15000) });
   } catch (err) { res.status(500).json({ error: err.message, text: null }); }
 });
 
@@ -289,7 +289,7 @@ app.get('/crawl-venue', async (req, res) => {
     const { url } = req.query;
     const baseUrl = new URL(url).origin;
     const { data: mainHtml } = await axios.get(url, { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0' } });
-    const mainText = stripHtml(mainHtml).slice(0, 2500);
+    const mainText = stripHtml(mainHtml).slice(0, 4000);
     const eventKeywords = ['event', 'program', 'musikk', 'sport', 'kamp', 'quiz', 'hva-skjer', 'kalender', 'konsert', 'live', 'arrangement', 'fotball', 'football'];
     const linkRegex = /href=["']([^"'#?]+)["']/g;
     const foundLinks = new Set();
@@ -307,12 +307,12 @@ app.get('/crawl-venue', async (req, res) => {
     for (const subUrl of Array.from(foundLinks).slice(0, 4)) {
       try {
         const { data: subHtml } = await axios.get(subUrl, { timeout: 8000, headers: { 'User-Agent': 'Mozilla/5.0' } });
-        const subText = stripHtml(subHtml).slice(0, 2000);
+        const subText = stripHtml(subHtml).slice(0, 3000);
         if (subText.length > 100) allText += `\n\n--- UNDERSIDE: ${subUrl} ---\n${subText}`;
       } catch {}
       await delay(300);
     }
-    res.json({ text: allText.slice(0, 8000), links: Array.from(foundLinks).slice(0, 4) });
+    res.json({ text: allText.slice(0, 15000), links: Array.from(foundLinks).slice(0, 4) });
   } catch (err) { res.status(500).json({ error: err.message, text: null }); }
 });
 

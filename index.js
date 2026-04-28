@@ -177,17 +177,18 @@ async function runPipeline(log = console.log) {
         messages: [{ role: 'user', content: `Du er AI-agent for utBergen i Bergen. Dagens dato er ${today}.
 Analyser innholdet fra "${venueName}" og ekstraher ALLE kommende eventer og kamper.
 
-Datoformater du vil se - tolke dem alle riktig:
-- "Søndag 26 April" eller "Mandag 27 April" = kommende dato
-- "26. apr" eller "27. apr" = norsk standard
-- Datoer fra 2023 eller tidligere = IGNORER, for gamle
-
-For fotballkamper: inkluder alltid begge lag, riktig liga og klokkeslett.
-For faste ukentlige eventer (quiz, karaoke osv): lag én rad per forekomst de neste 2 ukene.
+Viktige regler:
+- Ta KUN med eventer som er ETTER dagens dato (${today})
+- Ignorer alt fra 2023 og 2024
+- Datoformater: "Søndag 29 April" = "29. apr", "1 Mai" = "1. mai"
+- For fotballkamper: inkluder begge lag, liga og klokkeslett
+- Faste ukentlige eventer: lag én rad per forekomst de neste 14 dagene
+- Ignorer gamle eksempelkamper og historiske resultater
+- Fokuser på det som ligner et program eller sendeskjema for fremtiden
 
 INNHOLD:\n${allText.slice(0, 12000)}
-Returner KUN JSON-array, ingen markdown:
-[{"id":"${placeId}_1","venue_id":"${placeId}","title":"Chelsea vs Leeds","date":"26. apr","time":"16:00","type":"football","league":"FA CUP"}]
+Returner KUN JSON-array, ingen markdown, ingen forklaring:
+[{"id":"${placeId}_1","venue_id":"${placeId}","title":"Chelsea vs Leeds","date":"29. apr","time":"16:00","type":"football","league":"FA CUP"}]
 Gyldige typer: football, live_music, quiz, games, happy_hour, nightclub, karaoke
 Hvis ingen fremtidige eventer: []` }]
       }, { headers: { 'Content-Type': 'application/json', 'x-api-key': CLAUDE_KEY, 'anthropic-version': '2023-06-01' } });
@@ -280,7 +281,7 @@ app.get('/places/photo', async (req, res) => {
 app.get('/fetch-website', async (req, res) => {
   try {
     const { data } = await axios.get(req.query.url, { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0' } });
-    res.json({ text: stripHtml(data).slice(0, 15000) });
+    res.json({ text: stripHtml(data).slice(0, 20000) });
   } catch (err) { res.status(500).json({ error: err.message, text: null }); }
 });
 
@@ -326,17 +327,18 @@ app.post('/claude/scrape-events', async (req, res) => {
       messages: [{ role: 'user', content: `Du er AI-agent for utBergen i Bergen. Dagens dato er ${today}.
 Analyser innholdet fra "${venue.name}" og ekstraher ALLE kommende eventer og kamper.
 
-Datoformater du vil se - tolke dem alle riktig:
-- "Søndag 26 April" eller "Mandag 27 April" = kommende dato
-- "26. apr" eller "27. apr" = norsk standard
-- Datoer fra 2023 eller tidligere = IGNORER, for gamle
-
-For fotballkamper: inkluder alltid begge lag, riktig liga og klokkeslett.
-For faste ukentlige eventer (quiz, karaoke osv): lag én rad per forekomst de neste 2 ukene.
+Viktige regler:
+- Ta KUN med eventer som er ETTER dagens dato (${today})
+- Ignorer alt fra 2023 og 2024
+- Datoformater: "Søndag 29 April" = "29. apr", "1 Mai" = "1. mai"
+- For fotballkamper: inkluder begge lag, liga og klokkeslett
+- Faste ukentlige eventer (quiz hver torsdag osv): lag én rad per forekomst de neste 14 dagene
+- Ignorer gamle eksempelkamper og historiske resultater
+- Fokuser på det som ligner et program eller sendeskjema for fremtiden
 
 INNHOLD:\n${content}
-Returner KUN JSON-array, ingen markdown:
-[{"id":"${venue.place_id}_1","venue_id":"${venue.place_id}","title":"Chelsea vs Leeds","date":"26. apr","time":"16:00","type":"football","league":"FA CUP"}]
+Returner KUN JSON-array, ingen markdown, ingen forklaring:
+[{"id":"${venue.place_id}_1","venue_id":"${venue.place_id}","title":"Chelsea vs Leeds","date":"29. apr","time":"16:00","type":"football","league":"FA CUP"}]
 Gyldige typer: football, live_music, quiz, games, happy_hour, nightclub, karaoke
 Hvis ingen fremtidige eventer: []` }]
     }, { headers: { 'Content-Type': 'application/json', 'x-api-key': CLAUDE_KEY, 'anthropic-version': '2023-06-01' } });

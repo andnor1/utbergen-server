@@ -331,24 +331,20 @@ app.post('/claude/scrape-events', async (req, res) => {
     const today = new Date().toLocaleDateString('nb-NO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     console.log('Claude analyserer:', venue.name, `(${cleanContent.length} av ${content.length} tegn)`);
     const { data } = await axios.post('https://api.anthropic.com/v1/messages', {
-      model: 'claude-sonnet-4-6', max_tokens: 1000,
-      messages: [{ role: 'user', content: `Du er AI-agent for utBergen i Bergen. Dagens dato er ${today}.
-Ekstraher ALLE kamper og eventer fra innholdet under.
+      model: 'claude-sonnet-4-6', max_tokens: 4000,
+      messages: [{ role: 'user', content: `Ekstraher alle fotballkamper og eventer fra denne teksten og returner som JSON.
 
-Regler:
-- Ta med ALT som ser ut som et program, sendeskjema eller arrangement
-- Datoformater: "Søndag 29 April" = "29. apr", "9 Mai" = "9. mai", "Lørdag 2 Mai" = "2. mai"
-- For fotballkamper: ta med begge lag, liga og klokkeslett
-- Ikke filtrer på dato – ta med alt du finner
+TEKST:
+${cleanContent}
 
-INNHOLD:\n${cleanContent}
-Returner KUN JSON-array, ingen markdown:
-[{"id":"${venue.place_id}_1","venue_id":"${venue.place_id}","title":"Liverpool vs Chelsea","date":"9. mai","time":"13:30","type":"football","league":"PREMIER LEAGUE"}]
-Gyldige typer: football, live_music, quiz, games, happy_hour, nightclub, karaoke
-Hvis ingen eventer: []` }]
+Returner BARE en JSON-array, ingenting annet:
+[{"id":"1","venue_id":"${venue.place_id}","title":"Liverpool vs Chelsea","date":"9. mai","time":"13:30","type":"football","league":"PREMIER LEAGUE"}]
+
+Hvis ingen eventer finnes, returner: []` }]
     }, { headers: { 'Content-Type': 'application/json', 'x-api-key': CLAUDE_KEY, 'anthropic-version': '2023-06-01' } });
 
     const raw = data.content?.map(c => c.text || '').join('') || '[]';
+    console.log('Claude råsvar:', raw.slice(0, 200));
     const clean = raw.replace(/```json|```/g, '').trim();
     let events = [];
     try { events = JSON.parse(clean); if (!Array.isArray(events)) events = []; }

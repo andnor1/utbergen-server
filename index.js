@@ -319,8 +319,9 @@ app.get('/crawl-venue', async (req, res) => {
 app.post('/claude/scrape-events', async (req, res) => {
   try {
     const { venue, content } = req.body;
+    const cleanContent = removeOldContent(content);
     const today = new Date().toLocaleDateString('nb-NO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    console.log('Claude analyserer:', venue.name);
+    console.log('Claude analyserer:', venue.name, `(${cleanContent.length} av ${content.length} tegn)`);
     const { data } = await axios.post('https://api.anthropic.com/v1/messages', {
       model: 'claude-sonnet-4-6', max_tokens: 1000,
       messages: [{ role: 'user', content: `Du er AI-agent for utBergen i Bergen. Dagens dato er ${today}.

@@ -62,15 +62,6 @@ function stripHtml(html) {
     .trim();
 }
 
-function removeOldContent(text) {
-  // Fjern alt etter første forekomst av gammel dato (2023, 2024)
-  const oldDateMatch = text.search(/\b202[34]\b/);
-  if (oldDateMatch > 500) {
-    return text.slice(0, oldDateMatch).trim();
-  }
-  return text;
-}
-
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
 // ─── PIPELINE FUNKSJON ────────────────────────────────────────────────────────
@@ -330,26 +321,22 @@ app.post('/claude/scrape-events', async (req, res) => {
     const { venue, content } = req.body;
     const today = new Date().toLocaleDateString('nb-NO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     console.log('Claude analyserer:', venue.name);
-    const cleanContent = removeOldContent(content);
-    console.log(`Sendt til Claude: ${cleanContent.length} tegn (av ${content.length})`);
     const { data } = await axios.post('https://api.anthropic.com/v1/messages', {
       model: 'claude-sonnet-4-6', max_tokens: 1000,
       messages: [{ role: 'user', content: `Du er AI-agent for utBergen i Bergen. Dagens dato er ${today}.
-Analyser innholdet fra "${venue.name}" og ekstraher ALLE kommende eventer og kamper.
+Ekstraher ALLE kamper og eventer fra innholdet under.
 
-Datoformater du vil se - tolke dem alle riktig:
-- "Søndag 26 April" eller "Mandag 27 April" = kommende dato
-- "26. apr" eller "27. apr" = norsk standard
-- Datoer fra 2023 eller tidligere = IGNORER, for gamle
-
-For fotballkamper: inkluder alltid begge lag, riktig liga og klokkeslett.
-For faste ukentlige eventer (quiz, karaoke osv): lag én rad per forekomst de neste 2 ukene.
+Regler:
+- Ta med ALT som ser ut som et program, sendeskjema eller arrangement
+- Datoformater: "Søndag 29 April" = "29. apr", "9 Mai" = "9. mai", "Lørdag 2 Mai" = "2. mai"
+- For fotballkamper: ta med begge lag, liga og klokkeslett
+- Ikke filtrer på dato – ta med alt du finner
 
 INNHOLD:\n${cleanContent}
 Returner KUN JSON-array, ingen markdown:
-[{"id":"${venue.place_id}_1","venue_id":"${venue.place_id}","title":"Chelsea vs Leeds","date":"26. apr","time":"16:00","type":"football","league":"FA CUP"}]
+[{"id":"${venue.place_id}_1","venue_id":"${venue.place_id}","title":"Liverpool vs Chelsea","date":"9. mai","time":"13:30","type":"football","league":"PREMIER LEAGUE"}]
 Gyldige typer: football, live_music, quiz, games, happy_hour, nightclub, karaoke
-Hvis ingen fremtidige eventer: []` }]
+Hvis ingen eventer: []` }]
     }, { headers: { 'Content-Type': 'application/json', 'x-api-key': CLAUDE_KEY, 'anthropic-version': '2023-06-01' } });
 
     const raw = data.content?.map(c => c.text || '').join('') || '[]';
